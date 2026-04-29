@@ -2,10 +2,8 @@
 <html lang="zh-Hant">
 <head>
   <meta charset="UTF-8" />
-  <title>水果接接樂</title>
-
+  <title>水果接接樂測試版</title>
   <script src="https://cdn.jsdelivr.net/npm/phaser@3/dist/phaser.min.js"></script>
-
   <style>
     body {
       margin: 0;
@@ -14,11 +12,6 @@
       justify-content: center;
       align-items: center;
       height: 100vh;
-      font-family: "Microsoft JhengHei", sans-serif;
-    }
-
-    canvas {
-      border: 4px solid white;
     }
   </style>
 </head>
@@ -28,88 +21,35 @@
 class GameScene extends Phaser.Scene {
   constructor() {
     super("GameScene");
-
     this.player = null;
     this.items = null;
-
     this.score = 0;
-    this.scoreText = null;
-    this.statusText = null;
-
     this.moveDirection = 0;
     this.gameEnded = false;
-
-    this.availableImages = {
-      apple: false,
-      banana: false,
-      kiwi: false,
-      bomb: false,
-      player: false
-    };
   }
 
-  preload() {
-    // 先設定圖片載入成功或失敗的紀錄
-    this.load.on("filecomplete", (key, type) => {
-      if (type === "image" && this.availableImages.hasOwnProperty(key)) {
-        this.availableImages[key] = true;
-      }
-    });
-
-    this.load.on("loaderror", (file) => {
-      if (this.availableImages.hasOwnProperty(file.key)) {
-        this.availableImages[file.key] = false;
-      }
-    });
-
-    /*
-      GitHub Pages 上請確認檔案路徑與大小寫完全一致：
-
-      index.html
-      assets/
-        apple.png
-        banana.png
-        kiwi.png
-        bomb.png
-        player.png
-    */
-
-    this.load.image("apple", "./assets/apple.png");
-    this.load.image("banana", "./assets/banana.png");
-    this.load.image("kiwi", "./assets/kiwi.png");
-    this.load.image("bomb", "./assets/bomb.png");
-    this.load.image("player", "./assets/player.png");
-  }
+  preload() {}
 
   create() {
-    this.createFallbackTextures();
-    this.createBackground();
+    this.cameras.main.setBackgroundColor("#87ceeb");
 
-    this.score = 0;
-    this.moveDirection = 0;
-    this.gameEnded = false;
+    this.createTextures();
 
     this.scoreText = this.add.text(20, 20, "分數：0", {
       fontSize: "28px",
-      color: "#ffffff",
-      fontFamily: "Microsoft JhengHei"
+      color: "#ffffff"
     });
 
-    this.statusText = this.add.text(20, 55, this.getImageStatusText(), {
-      fontSize: "16px",
-      color: "#ffffff",
-      fontFamily: "Microsoft JhengHei"
-    });
-
-    this.add.text(20, 80, "按住左半邊往左，按住右半邊往右", {
+    this.debugText = this.add.text(20, 55, "等待產生水果...", {
       fontSize: "18px",
-      color: "#eeeeee",
-      fontFamily: "Microsoft JhengHei"
+      color: "#ffffff"
     });
 
     this.items = this.physics.add.group();
 
-    this.createPlayer();
+    this.player = this.physics.add.sprite(400, 520, "player");
+    this.player.body.setAllowGravity(false);
+    this.player.setCollideWorldBounds(true);
 
     this.physics.add.overlap(
       this.player,
@@ -120,7 +60,7 @@ class GameScene extends Phaser.Scene {
     );
 
     this.time.addEvent({
-      delay: 800,
+      delay: 700,
       callback: this.spawnItem,
       callbackScope: this,
       loop: true
@@ -132,7 +72,7 @@ class GameScene extends Phaser.Scene {
         return;
       }
 
-      if (pointer.x < this.game.config.width / 2) {
+      if (pointer.x < 400) {
         this.moveDirection = -1;
       } else {
         this.moveDirection = 1;
@@ -141,6 +81,16 @@ class GameScene extends Phaser.Scene {
 
     this.input.on("pointerup", () => {
       this.moveDirection = 0;
+    });
+
+    this.add.text(120, 570, "← 點左半邊往左", {
+      fontSize: "22px",
+      color: "#ffffff"
+    });
+
+    this.add.text(500, 570, "點右半邊往右 →", {
+      fontSize: "22px",
+      color: "#ffffff"
     });
   }
 
@@ -151,64 +101,11 @@ class GameScene extends Phaser.Scene {
 
     this.player.setVelocityX(this.moveDirection * 350);
 
-    if (this.player.x < 40) {
-      this.player.x = 40;
-      this.player.setVelocityX(0);
-    }
-
-    if (this.player.x > this.game.config.width - 40) {
-      this.player.x = this.game.config.width - 40;
-      this.player.setVelocityX(0);
-    }
-
     this.items.children.iterate((item) => {
-      if (item && item.y > this.game.config.height + 80) {
+      if (item && item.y > 650) {
         item.destroy();
       }
     });
-  }
-
-  getImageStatusText() {
-    const names = ["apple", "banana", "kiwi", "bomb", "player"];
-    const result = names.map(name => {
-      return name + "：" + (this.availableImages[name] ? "圖檔" : "幾何圖形");
-    });
-
-    return result.join("　");
-  }
-
-  createBackground() {
-    this.cameras.main.setBackgroundColor("#87ceeb");
-
-    this.add.rectangle(400, 570, 800, 60, 0x55aa55);
-
-    this.add.rectangle(200, 300, 400, 600, 0xffffff, 0.05);
-    this.add.rectangle(600, 300, 400, 600, 0x000000, 0.05);
-
-    this.add.text(150, 520, "← 左移", {
-      fontSize: "24px",
-      color: "#ffffff",
-      fontFamily: "Microsoft JhengHei"
-    });
-
-    this.add.text(560, 520, "右移 →", {
-      fontSize: "24px",
-      color: "#ffffff",
-      fontFamily: "Microsoft JhengHei"
-    });
-  }
-
-  createPlayer() {
-    const textureKey = this.availableImages.player ? "player" : "player_fallback";
-
-    this.player = this.physics.add.sprite(400, 500, textureKey);
-
-    if (this.availableImages.player) {
-      this.player.setDisplaySize(70, 70);
-    }
-
-    this.player.setCollideWorldBounds(true);
-    this.player.body.setAllowGravity(false);
   }
 
   spawnItem() {
@@ -218,31 +115,20 @@ class GameScene extends Phaser.Scene {
 
     const types = ["apple", "banana", "kiwi", "bomb"];
     const type = Phaser.Utils.Array.GetRandom(types);
+    const x = Phaser.Math.Between(50, 750);
 
-    const x = Phaser.Math.Between(50, this.game.config.width - 50);
-
-    const textureKey = this.availableImages[type]
-      ? type
-      : type + "_fallback";
-
-    const item = this.physics.add.sprite(x, -40, textureKey);
-
-    if (this.availableImages[type]) {
-      item.setDisplaySize(45, 45);
-    }
-
+    const item = this.physics.add.sprite(x, -30, type);
     item.itemType = type;
-    item.setVelocityY(Phaser.Math.Between(170, 280));
     item.body.setAllowGravity(false);
+    item.setVelocityY(220);
 
     this.items.add(item);
+
+    this.debugText.setText("已產生：" + type);
+    console.log("spawn item:", type, x);
   }
 
   hitItem(player, item) {
-    if (this.gameEnded) {
-      return;
-    }
-
     if (item.itemType === "bomb") {
       this.endGame();
       return;
@@ -256,128 +142,75 @@ class GameScene extends Phaser.Scene {
   endGame() {
     this.gameEnded = true;
 
-    this.player.setVelocityX(0);
-
     this.items.children.iterate((item) => {
       if (item) {
         item.setVelocityY(0);
       }
     });
 
-    this.add.text(400, 270, "遊戲結束", {
+    this.add.text(400, 280, "遊戲結束", {
       fontSize: "52px",
-      color: "#ff3333",
-      fontFamily: "Microsoft JhengHei",
-      fontStyle: "bold"
+      color: "#ff3333"
     }).setOrigin(0.5);
 
-    this.add.text(400, 335, "點擊畫面重新開始", {
-      fontSize: "26px",
-      color: "#ffffff",
-      fontFamily: "Microsoft JhengHei"
+    this.add.text(400, 340, "點擊重新開始", {
+      fontSize: "28px",
+      color: "#ffffff"
     }).setOrigin(0.5);
   }
 
-  createFallbackTextures() {
-    this.createAppleTexture();
-    this.createBananaTexture();
-    this.createKiwiTexture();
-    this.createBombTexture();
-    this.createPlayerTexture();
-  }
+  createTextures() {
+    let g;
 
-  createAppleTexture() {
-    const g = this.add.graphics();
+    // 玩家
+    g = this.add.graphics();
+    g.fillStyle(0x3366ff, 1);
+    g.fillRoundedRect(0, 0, 80, 45, 12);
+    g.fillStyle(0xffffff, 1);
+    g.fillCircle(25, 18, 6);
+    g.fillCircle(55, 18, 6);
+    g.generateTexture("player", 80, 45);
+    g.destroy();
 
+    // 蘋果
+    g = this.add.graphics();
     g.fillStyle(0xff3333, 1);
-    g.fillCircle(25, 30, 20);
-
+    g.fillCircle(25, 28, 22);
     g.fillStyle(0x228833, 1);
-    g.fillEllipse(35, 10, 20, 10);
-
-    g.fillStyle(0x663300, 1);
-    g.fillRect(23, 7, 5, 12);
-
-    g.generateTexture("apple_fallback", 50, 55);
+    g.fillEllipse(35, 8, 20, 10);
+    g.generateTexture("apple", 55, 55);
     g.destroy();
-  }
 
-  createBananaTexture() {
-    const g = this.add.graphics();
-
+    // 香蕉
+    g = this.add.graphics();
     g.fillStyle(0xffdd33, 1);
-    g.fillEllipse(25, 30, 45, 18);
-
+    g.fillEllipse(25, 28, 48, 18);
     g.fillStyle(0x87ceeb, 1);
-    g.fillEllipse(25, 23, 38, 13);
-
-    g.fillStyle(0x8b5a2b, 1);
-    g.fillCircle(5, 31, 4);
-    g.fillCircle(45, 26, 4);
-
-    g.generateTexture("banana_fallback", 50, 55);
+    g.fillEllipse(25, 22, 40, 12);
+    g.generateTexture("banana", 55, 55);
     g.destroy();
-  }
 
-  createKiwiTexture() {
-    const g = this.add.graphics();
-
+    // 奇異果
+    g = this.add.graphics();
     g.fillStyle(0x8b5a2b, 1);
     g.fillCircle(25, 25, 22);
-
     g.fillStyle(0x66cc55, 1);
     g.fillCircle(25, 25, 16);
-
     g.fillStyle(0xffffff, 1);
     g.fillCircle(25, 25, 6);
-
-    g.fillStyle(0x111111, 1);
-    for (let i = 0; i < 8; i++) {
-      const angle = i * Math.PI / 4;
-      const px = 25 + Math.cos(angle) * 11;
-      const py = 25 + Math.sin(angle) * 11;
-      g.fillCircle(px, py, 2);
-    }
-
-    g.generateTexture("kiwi_fallback", 50, 50);
+    g.generateTexture("kiwi", 55, 55);
     g.destroy();
-  }
 
-  createBombTexture() {
-    const g = this.add.graphics();
-
+    // 炸彈
+    g = this.add.graphics();
     g.fillStyle(0x111111, 1);
-    g.fillCircle(25, 30, 20);
-
+    g.fillCircle(25, 30, 22);
     g.lineStyle(4, 0xffaa00, 1);
     g.beginPath();
     g.moveTo(35, 15);
     g.lineTo(48, 3);
     g.strokePath();
-
-    g.fillStyle(0xffdd33, 1);
-    g.fillCircle(50, 3, 5);
-
-    g.generateTexture("bomb_fallback", 55, 55);
-    g.destroy();
-  }
-
-  createPlayerTexture() {
-    const g = this.add.graphics();
-
-    g.fillStyle(0x3366ff, 1);
-    g.fillRoundedRect(0, 0, 70, 45, 12);
-
-    g.fillStyle(0xffffff, 1);
-    g.fillCircle(20, 15, 6);
-    g.fillCircle(50, 15, 6);
-
-    g.lineStyle(3, 0xffffff, 1);
-    g.beginPath();
-    g.arc(35, 25, 15, 0, Math.PI, false);
-    g.strokePath();
-
-    g.generateTexture("player_fallback", 70, 45);
+    g.generateTexture("bomb", 55, 55);
     g.destroy();
   }
 }
@@ -386,7 +219,6 @@ const config = {
   type: Phaser.AUTO,
   width: 800,
   height: 600,
-  parent: document.body,
   physics: {
     default: "arcade",
     arcade: {
