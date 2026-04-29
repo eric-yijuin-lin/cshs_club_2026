@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <title>水果接接樂</title>
+
+  <!-- Phaser CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/phaser@3/dist/phaser.min.js"></script>
+
+  <style>
+    body {
+      margin: 0;
+      background: #222;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      font-family: "Microsoft JhengHei", sans-serif;
+    }
+
+    canvas {
+      border: 4px solid #ffffff;
+      box-shadow: 0 0 20px rgba(255,255,255,0.3);
+    }
+  </style>
+</head>
+<body>
+
+<script>
+class GameScene extends Phaser.Scene {
+  constructor() {
+    super("GameScene");
+
+    this.player = null;
+    this.items = null;
+
+    this.score = 0;
+    this.scoreText = null;
+    this.gameOverText = null;
+
+    this.moveDirection = 0;
+    this.gameEnded = false;
+
+    this.imageKeys = ["apple", "banana", "kiwi", "bomb", "player"];
+    this.availableImages = {};
+  }
+
+  preload() {
+    /*
+      請把圖片放在 assets 資料夾中：
+
+      assets/apple.png
+      assets/banana.png
+      assets/kiwi.png
+      assets/bomb.png
+      assets/player.png
+
+      如果圖片不存在，遊戲會自動改用幾何圖形。
+    */
+
+    this.load.image("apple", "assets/apple.png");
+    this.load.image("banana", "assets/banana.png");
+    this.load.image("kiwi", "assets/kiwi.png");
+    this.load.image("bomb", "assets/bomb.png");
+    this.load.image("player", "assets/player.png");
+
+    // 圖片載入失敗時，記錄為不可用
+    this.load.on("loaderror", (file) => {
+      this.availableImages[file.key] = false;
+    });
+
+    // 圖片載入成功時，記錄為可用
+    this.load.on("filecomplete", (key) => {
+      this.availableImages[key] = true;
+    });
+  }
+
+  create() {
+    this.createBackground();
+
+    this.score = 0;
+    this.gameEnded = false;
+    this.moveDirection = 0;
+
+    this.scoreText = this.add.text(20, 20, "分數：0", {
+      fontSize: "28px",
+      color: "#ffffff",
+      fontFamily: "Microsoft JhengHei"
+    });
+
+    this.add.text(20, 55, "點左半邊往左，點右半邊往右", {
+      fontSize: "18px",
+      color: "#dddddd",
+      fontFamily: "Microsoft JhengHei"
+    });
+
+    this.items = this.physics.add.group();
+
+    this.createPlayer();
+
+    this.physics.add.overlap(
+      this.player,
+      this.items,
+      this.hitItem,
+      null,
+      this
+    );
+
+    this.time.addEvent({
+      delay: 900,
+      callback: this.spawnItem,
+      callbackScope: this,
+      loop: true
+    });
+
+    this.input.on("pointerdown", (pointer) => {
+      if (this.gameEnded) {
+        this.scene.restart();
+        return;
+      }
+
+      if (pointer.x < this.game.config.width / 2) {
+        this.moveDirection = -1;
+      } else {
+        this.moveDirection = 1;
+      }
+    });
+
+    this.input.on("pointerup", () => {
+      this.moveDirection = 0;
+    });
+  }
+
+  update() {
+    if (this.gameEnded) {
+      return;
+    }
+
+    this.player.setVelocityX(this.moveDirection * 350);
+
+    // 防止玩家跑出畫面
+    if (this.player.x < 40) {
+      this.player.x = 40;
+      this.player.setVelocityX(0);
+    }
+
+    if (this.player.x > this.game.config.width - 40) {
+      this.player.x = this.game.config.width - 40;
+      this.player.setVelocityX(0);
+    }
+
+    // 移除掉出畫面外的物品
+    this.items.children.iterate((item) => {
+      if (item && item.y > this.game.config.height + 50) {
+        item.destroy();
+      }
+    });
+  }
+
+  createBackground() {
+    this.cameras.main.setBackgroundColor("#87ceeb");
+
+    // 草地
+    this.add.rectangle(400, 570, 800, 60, 0x55aa55);
+
+    // 左右提示區
+    this.add.rectangle(200, 300, 400, 600, 0xffffff, 0.04);
+    this.add.rectangle(600, 300, 400, 600, 0x000000, 0.04);
+
+    this.add.text(150, 520, "← 左移", {
+      fontSize: "24px",
+      color: "#ffffff"
+    });
+
+    this.add.text(560, 520, "右移 →", {
+      fontSize: "24px",
+      color: "#ffffff"
+    });
+  }
+
+  createPlayer() {
+    if (this.availableImages["player"]) {
+      this.player = this.physics.add.sprite(400, 500, "player");
+      this.player.setDisplaySize(70, 70);
+    } else {
+      const graphics = this.add.graphics();
+
+      graphics.fillStyle(0x3366ff, 1);
+      graphics.fillRoundedRect(0, 0, 70, 45, 12);
+
+      graphics.fillStyle(0xffffff, 1);
+      graphics.fillCircle(20, 15, 6);
+      graphics.fillCircle(50, 15, 6);
+
+      graphics.lineStyle(3, 0xffffff, 1);
+      graphics.beginPath();
+      graphics.arc(35, 25, 15, 0, Math.PI, false);
+      graphics.strokePath();
+
+      graphics.generateTexture("playerShape", 70, 45);
+      graphics.destroy();
+
+      this.player = this.physics.add.sprite(400, 500, "playerShape");
+    }
+
+    this.player.setCollideWorldBounds(true);
+    this.player.body.setAllowGravity(false);
+  }
+
+  spawnItem() {
+    if (this.gameEnded) {
+      return;
+    }
+
+    const types = ["apple", "banana", "kiwi", "bomb"];
+    const type = Phaser.Utils.Array.GetRandom(types);
+
+    const x = Phaser.Math.Between(50, this.game.config.width - 50);
+    let item;
+
+    if (this.availableImages[type]) {
+      item = this.physics.add.sprite(x, -40, type);
+      item.setDisplaySize(45, 45);
+    } else {
+      const textureKey = this.createFallbackTexture(type);
+      item = this.physics.add.sprite(x, -40, textureKey);
+    }
+
+    item.itemType = type;
+    item.setVelocityY(Phaser.Math.Between(150, 260));
+    item.body.setAllowGravity(false);
+
+    this.items.add(item);
+  }
+
+  createFallbackTexture(type) {
+    const textureKey = type + "Shape";
+
+    if (this.textures.exists(textureKey)) {
+      return textureKey;
+    }
+
+    const graphics = this.add.graphics();
+
+    if (type === "apple") {
+      // 蘋果：紅色圓形加葉子
+      graphics.fillStyle(0xff3333, 1);
+      graphics.fillCircle(25, 28, 20);
+
+      graphics.fillStyle(0x228833, 1);
+      graphics.fillEllipse(35, 8, 20, 10);
+
+      graphics.fillStyle(0x663300, 1);
+      graphics.fillRect(23, 5, 5, 12);
+    }
+
+    else if (type === "banana") {
+      // 香蕉：黃色彎月形
+      graphics.fillStyle(0xffdd33, 1);
+      graphics.fillEllipse(25, 28, 45, 18);
+
+      graphics.fillStyle(0x87ceeb, 1);
+      graphics.fillEllipse(25, 22, 38, 13);
+
+      graphics.fillStyle(0x8b5a2b, 1);
+      graphics.fillCircle(5, 30, 4);
+      graphics.fillCircle(45, 25, 4);
+    }
+
+    else if (type === "kiwi") {
+      // 奇異果：棕色外圈、綠色內圈
+      graphics.fillStyle(0x8b5a2b, 1);
+      graphics.fillCircle(25, 25, 22);
+
+      graphics.fillStyle(0x66cc55, 1);
+      graphics.fillCircle(25, 25, 16);
+
+      graphics.fillStyle(0xffffff, 1);
+      graphics.fillCircle(25, 25, 6);
+
+      graphics.fillStyle(0x111111, 1);
+      for (let i = 0; i < 8; i++) {
+        const angle = i * Math.PI / 4;
+        const px = 25 + Math.cos(angle) * 11;
+        const py = 25 + Math.sin(angle) * 11;
+        graphics.fillCircle(px, py, 2);
+      }
+    }
+
+    else if (type === "bomb") {
+      // 炸彈：黑色圓形加引線
+      graphics.fillStyle(0x111111, 1);
+      graphics.fillCircle(25, 30, 20);
+
+      graphics.lineStyle(4, 0xffaa00, 1);
+      graphics.beginPath();
+      graphics.moveTo(35, 15);
+      graphics.lineTo(48, 3);
+      graphics.strokePath();
+
+      graphics.fillStyle(0xffdd33, 1);
+      graphics.fillCircle(50, 3, 5);
+    }
+
+    graphics.generateTexture(textureKey, 50, 50);
+    graphics.destroy();
+
+    return textureKey;
+  }
+
+  hitItem(player, item) {
+    if (this.gameEnded) {
+      return;
+    }
+
+    if (item.itemType === "bomb") {
+      this.endGame();
+    } else {
+      this.score += 10;
+      this.scoreText.setText("分數：" + this.score);
+      item.destroy();
+    }
+  }
+
+  endGame() {
+    this.gameEnded = true;
+
+    this.player.setVelocityX(0);
+    this.items.children.iterate((item) => {
+      if (item) {
+        item.setVelocityY(0);
+      }
+    });
+
+    this.gameOverText = this.add.text(400, 270, "遊戲結束", {
+      fontSize: "52px",
+      color: "#ff3333",
+      fontFamily: "Microsoft JhengHei",
+      fontStyle: "bold"
+    }).setOrigin(0.5);
+
+    this.add.text(400, 335, "點擊畫面重新開始", {
+      fontSize: "26px",
+      color: "#ffffff",
+      fontFamily: "Microsoft JhengHei"
+    }).setOrigin(0.5);
+  }
+}
+
+const config = {
+  type: Phaser.AUTO,
+  width: 800,
+  height: 600,
+  parent: document.body,
+  physics: {
+    default: "arcade",
+    arcade: {
+      debug: false
+    }
+  },
+  scene: GameScene
+};
+
+new Phaser.Game(config);
+</script>
+
+</body>
+</html>
